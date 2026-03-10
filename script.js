@@ -1,23 +1,29 @@
-const SUPABASE_URL = 'https://vxzmurshrtcnupxltrdj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4em11cnNocnRjbnVweGx0cmRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTQ5OTEsImV4cCI6MjA4ODczMDk5MX0.KBsJd3Sv75onHEI7plRgdwk1eQnOK7tb7rwtgB9Vu30';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// 1. Configuration - Replace with your actual project details
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_KEY';
 
+let supabaseClient;
 let expenses = [];
 let myChart = null;
 
+// 2. Initialization - Wait for the library and window to load
+window.onload = () => {
+    try {
+        // Initialize the client using the global 'supabase' object from the CDN
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log("Supabase initialized successfully.");
+        checkUser();
+    } catch (err) {
+        console.error("Initialization error:", err);
+    }
+};
+
 // --- AUTH LOGIC ---
 async function checkUser() {
-    try {
-        // Use the .auth property explicitly
-        const { data, error } = await supabaseClient.auth.getUser();
-        
-        if (error || !data.user) {
-            showAuth();
-        } else {
-            showApp();
-        }
-    } catch (err) {
-        console.error("Auth check failed:", err);
+    const { data: { user }, error } = await supabaseClient.auth.getUser();
+    if (user) {
+        showApp();
+    } else {
         showAuth();
     }
 }
@@ -33,17 +39,41 @@ function showAuth() {
     document.getElementById('app-container').style.display = 'none';
 }
 
+// Sign In
 document.getElementById('login-btn').addEventListener('click', async () => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) alert(error.message); else showApp();
 });
 
-// --- CORE APP LOGIC ---
+// Sign Up
+document.getElementById('signup-btn').addEventListener('click', async () => {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) alert(error.message); else alert("Check your email or try logging in!");
+});
+
+// Logout
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    window.location.reload();
+});
+
+// --- DATA LOGIC ---
 async function fetchExpenses() {
-    const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
-    if (!error) { expenses = data; updateUI(); }
+    const { data, error } = await supabaseClient
+        .from('expenses')
+        .select('*')
+        .order('date', { ascending: false });
+    
+    if (!error) { 
+        expenses = data; 
+        updateUI(); 
+    } else {
+        console.error("Fetch error:", error.message);
+    }
 }
 
 function updateUI() {
@@ -57,7 +87,7 @@ function updateUI() {
     let total = 0;
     let totalsByCategory = {};
 
-    expenses.forEach((item, index) => {
+    expenses.forEach((item) => {
         const matchesSearch = item.description.toLowerCase().includes(searchTerm);
         const matchesDate = filter === 'all' || item.date === today;
 
@@ -70,7 +100,7 @@ function updateUI() {
                 <div>
                     <strong>${item.description}</strong> <small>(${item.category})</small><br>
                     <span style="font-size: 12px">${item.date}</span>
-                    ${item.receipt_url ? ` | <a href="${item.receipt_url}" target="_blank">📄</a>` : ''}
+                    ${item.receipt_url ? ` | <a href="${item.receipt_url}" target="_blank">📄 Receipt</a>` : ''}
                 </div>
                 <div>
                     <b>$${item.amount.toFixed(2)}</b>
@@ -88,37 +118,66 @@ function updateUI() {
 
 // --- FEATURES ---
 async function deleteExpense(id) {
-    await supabase.from('expenses').delete().eq('id', id);
-    fetchExpenses();
+    const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
+    if (!error) fetchExpenses();
 }
 
 function updateBudget(total) {
-    const limit = parseFloat(document.getElementById('budget-input').value);
+    const budgetInput = document.getElementById('budget-input');
+    const limit = parseFloat(budgetInput.value) || 1000;
     const perc = Math.min((total / limit) * 100, 100);
-    document.getElementById('progress-bar').style.width = perc + "%";
+    
+    const progressBar = document.getElementById('progress-bar');
+    progressBar.style.width = perc + "%";
+    
+    // Change color based on percentage
+    if (perc < 70) progressBar.style.background = "#00b894";
+    else if (perc < 90) progressBar.style.background = "#fdcb6e";
+    else progressBar.style.background = "#ff7675";
+
     document.getElementById('budget-status').innerText = `$${(limit - total).toFixed(2)} left`;
 }
 
-// OCR SCANNING
+// AI OCR Scanning
 document.getElementById('scan-btn').addEventListener('click', async () => {
-    const file = document.getElementById('receipt-upload').files[0];
-    if (!file) return alert("Select a photo first");
-    document.getElementById('ocr-status').style.display = 'block';
+    const fileInput = document.getElementById('receipt-upload');
+    const file = fileInput.files[0];
+    if (!file) return alert("Select a photo of a receipt first");
     
-    const { data: { text } } = await Tesseract.recognize(file, 'eng');
-    const matches = text.match(/\d+\.\d{2}/g);
-    if (matches) document.getElementById('amount').value = Math.max(...matches.map(Number));
-    document.getElementById('ocr-status').style.display = 'none';
+    const status = document.getElementById('ocr-status');
+    status.style.display = 'block';
+    
+    try {
+        const { data: { text } } = await Tesseract.recognize(file, 'eng');
+        const matches = text.match(/\d+\.\d{2}/g);
+        if (matches) {
+            const maxPrice = Math.max(...matches.map(Number));
+            document.getElementById('amount').value = maxPrice;
+        } else {
+            alert("Could not find a price. Try a clearer photo.");
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        status.style.display = 'none';
+    }
 });
 
-// THEME TOGGLE
-document.getElementById('theme-toggle').addEventListener('click', () => {
-    const root = document.documentElement;
-    const isDark = root.getAttribute('data-theme') === 'dark';
-    root.setAttribute('data-theme', isDark ? 'light' : 'dark');
-    document.getElementById('theme-toggle').innerText = isDark ? '🌙' : '☀️';
+// CSV Export
+document.getElementById('export-btn').addEventListener('click', () => {
+    if (expenses.length === 0) return;
+    const headers = ["Date", "Description", "Category", "Amount"];
+    const rows = expenses.map(e => [e.date, `"${e.description}"`, e.category, e.amount]);
+    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'expenses.csv';
+    a.click();
 });
 
+// Chart.js Rendering
 function renderChart(data) {
     const ctx = document.getElementById('expenseChart').getContext('2d');
     if (myChart) myChart.destroy();
@@ -126,32 +185,13 @@ function renderChart(data) {
         type: 'doughnut',
         data: {
             labels: Object.keys(data),
-            datasets: [{ data: Object.values(data), backgroundColor: ['#00b894', '#0984e3', '#fdcb6e', '#e17055', '#6c5ce7'] }]
+            datasets: [{ 
+                data: Object.values(data), 
+                backgroundColor: ['#00b894', '#0984e3', '#fdcb6e', '#e17055', '#6c5ce7'] 
+            }]
         },
-        options: { plugins: { legend: { position: 'bottom' } } }
+        options: { plugins: { legend: { position: 'bottom' } }, responsive: true }
     });
 }
 
-document.getElementById('expense-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const file = document.getElementById('receipt-upload').files[0];
-    let url = null;
-    if (file) {
-        const name = Date.now() + file.name;
-        await supabase.storage.from('receipts').upload(name, file);
-        url = supabase.storage.from('receipts').getPublicUrl(name).data.publicUrl;
-    }
-    await supabase.from('expenses').insert([{
-        description: document.getElementById('desc').value,
-        amount: parseFloat(document.getElementById('amount').value),
-        category: document.getElementById('category').value,
-        date: new Date().toISOString().split('T')[0],
-        receipt_url: url
-    }]);
-    fetchExpenses();
-    e.target.reset();
-});
-
-document.getElementById('search-input').addEventListener('input', updateUI);
-document.getElementById('date-filter').addEventListener('change', updateUI);
-checkUser();
+// Theme
