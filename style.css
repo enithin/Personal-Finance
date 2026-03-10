@@ -1,0 +1,27 @@
+:root {
+    --bg: #f8f9fa; --card: #ffffff; --text: #2d3436; --border: #dfe6e9; --primary: #00b894;
+}
+[data-theme="dark"] {
+    --bg: #1e272e; --card: #2f3542; --text: #ffffff; --border: #57606f; --primary: #05c46b;
+}
+
+body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: 0.3s; }
+.container { max-width: 1100px; margin: auto; background: var(--card); padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+
+/* Dashboard Grid */
+@media (min-width: 768px) {
+    .dashboard-grid { display: grid; grid-template-columns: 350px 1fr; gap: 40px; }
+}
+
+/* UI Components */
+.budget-card { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.05); padding: 20px; border-radius: 12px; margin: 20px 0; }
+.progress-bar-bg { width: 200px; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; margin: 10px 0; }
+#progress-bar { height: 100%; width: 0; transition: 0.5s; background: var(--primary); }
+
+input, select, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box; }
+.primary { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; }
+.ai-btn { background: #6c5ce7; color: white; border: none; }
+.danger { color: #ff7675; border: 1px solid #ff7675; background: none; }
+
+ul { list-style: none; padding: 0; }
+li { padding: 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
