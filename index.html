@@ -3,19 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Expense Tracker</title>
+    <title>FinSwift AI - Smart Expense Tracker</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/browser-image-compression/2.0.2/browser-image-compression.min.js"></script>
 </head>
 <body>
     <div id="auth-container" class="container">
-        <h2>Finance Login</h2>
+        <h1>FinSwift AI</h1>
+        <p>Login to sync your expenses</p>
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Password">
-        <button id="login-btn">Login</button>
-        <button id="signup-btn" class="secondary">Sign Up</button>
+        <button id="login-btn" class="primary">Login</button>
+        <button id="google-login-btn" class="secondary">
+            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="18"> Continue with Google
+        </button>
+        <button id="signup-btn" class="link-btn">New here? Sign Up</button>
     </div>
 
     <div id="app-container" class="container" style="display: none;">
@@ -24,14 +29,13 @@
                 <h2>My Dashboard</h2>
                 <button id="theme-toggle">🌙</button>
             </div>
-            
             <div class="budget-card">
                 <div class="total-box">
                     <small>Total Spent</small>
-                    <h1 id="total-amount">$0.00</h1>
+                    <h1 id="total-amount">₹0.00</h1>
                 </div>
                 <div class="progress-box">
-                    <label>Monthly Goal: $<input type="number" id="budget-input" value="1000"></label>
+                    <label>Monthly Goal: ₹<input type="number" id="budget-input" value="50000"></label>
                     <div class="progress-bar-bg"><div id="progress-bar"></div></div>
                     <small id="budget-status">Loading...</small>
                 </div>
@@ -41,43 +45,37 @@
         <div class="dashboard-grid">
             <aside class="controls">
                 <form id="expense-form">
-                    <input type="text" id="desc" placeholder="Description" required>
-                    <input type="number" id="amount" placeholder="Amount" step="0.01" required>
+                    <input type="text" id="desc" placeholder="What did you buy?" required>
+                    <input type="number" id="amount" placeholder="Amount (₹)" step="0.01" required>
                     <select id="category">
                         <option value="Food">🍔 Food</option>
                         <option value="Transport">🚗 Transport</option>
                         <option value="Rent">🏠 Rent</option>
-                        <option value="Fun">🎬 Fun</option>
+                        <option value="Shopping">🛍️ Shopping</option>
                         <option value="Other">📦 Other</option>
                     </select>
-                    <label class="file-label">
-                        <span>📷 Attach Receipt</span>
-                        <input type="file" id="receipt-upload" accept="image/*">
+                    <label class="check-label">
+                        <input type="checkbox" id="is-recurring"> Repeat every month?
                     </label>
-                    <button type="button" id="scan-btn" class="ai-btn">🔍 AI Scan Price</button>
-                    <p id="ocr-status" style="display:none">AI is reading...</p>
+                    <div class="file-group">
+                        <input type="file" id="receipt-upload" accept="image/*">
+                        <button type="button" id="scan-btn" class="ai-btn">🔍 AI Scan</button>
+                    </div>
+                    <div id="loader" style="display:none;" class="spinner"></div>
                     <button type="submit" class="primary">Add Expense</button>
                 </form>
-
                 <div class="chart-box">
                     <canvas id="expenseChart"></canvas>
-                    <div id="category-summary"></div>
                 </div>
             </aside>
 
             <main class="history">
-                <div class="search-bar">
-                    <input type="text" id="search-input" placeholder="Search expenses...">
-                    <select id="date-filter">
-                        <option value="all">All Time</option>
-                        <option value="today">Today</option>
-                    </select>
+                <div class="list-header">
+                    <input type="text" id="search-input" placeholder="Search...">
+                    <button id="export-btn">📊 CSV</button>
                 </div>
                 <ul id="expense-list"></ul>
-                <div class="actions">
-                    <button id="export-btn">📊 Export CSV</button>
-                    <button id="logout-btn" class="danger">Logout</button>
-                </div>
+                <button id="logout-btn" class="danger">Logout</button>
             </main>
         </div>
     </div>
