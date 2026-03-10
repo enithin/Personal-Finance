@@ -1,28 +1,21 @@
-// 1. Configuration - Replace with your actual project details
-const SUPABASE_URL = 'https://vxzmurshrtcnupxltrdj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4em11cnNocnRjbnVweGx0cmRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTQ5OTEsImV4cCI6MjA4ODczMDk5MX0.KBsJd3Sv75onHEI7plRgdwk1eQnOK7tb7rwtgB9Vu30';
-
+const SUPABASE_URL = 'YOUR_URL';
+const SUPABASE_KEY = 'YOUR_KEY';
 let supabaseClient;
 let expenses = [];
 let myChart = null;
 
-// 2. Initialization - Wait for the library and window to load
+const rupee = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
+
 window.onload = () => {
-    try {
-        // Initialize the client using the global 'supabase' object from the CDN
-        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        console.log("Supabase initialized successfully.");
-        checkUser();
-    } catch (err) {
-        console.error("Initialization error:", err);
-    }
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    checkUser();
 };
 
-// --- AUTH LOGIC ---
 async function checkUser() {
-    const { data: { user }, error } = await supabaseClient.auth.getUser();
+    const { data: { user } } = await supabaseClient.auth.getUser();
     if (user) {
         showApp();
+        processRecurring();
     } else {
         showAuth();
     }
@@ -39,145 +32,81 @@ function showAuth() {
     document.getElementById('app-container').style.display = 'none';
 }
 
-// Sign In
-document.getElementById('login-btn').addEventListener('click', async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message); else showApp();
+// Google Login
+document.getElementById('google-login-btn').addEventListener('click', async () => {
+    await supabaseClient.auth.signInWithOAuth({ provider: 'google' });
 });
 
-// Sign Up
-document.getElementById('signup-btn').addEventListener('click', async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const { error } = await supabaseClient.auth.signUp({ email, password });
-    if (error) alert(error.message); else alert("Check your email or try logging in!");
-});
-
-// Logout
-document.getElementById('logout-btn').addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    window.location.reload();
-});
-
-// --- DATA LOGIC ---
-async function fetchExpenses() {
-    const { data, error } = await supabaseClient
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
+// AI OCR Scanning
+document.getElementById('scan-btn').addEventListener('click', async () => {
+    const file = document.getElementById('receipt-upload').files[0];
+    if (!file) return alert("Upload a photo first");
+    const btn = document.getElementById('scan-btn');
+    btn.innerText = "Scanning...";
     
-    if (!error) { 
-        expenses = data; 
-        updateUI(); 
-    } else {
-        console.error("Fetch error:", error.message);
+    const { data: { text } } = await Tesseract.recognize(file, 'eng');
+    const prices = text.match(/\d+\.\d{2}/g);
+    if (prices) document.getElementById('amount').value = Math.max(...prices.map(Number));
+    btn.innerText = "🔍 AI Scan";
+});
+
+// Add Expense with Compression
+document.getElementById('expense-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const loader = document.getElementById('loader');
+    loader.style.display = 'block';
+
+    let file = document.getElementById('receipt-upload').files[0];
+    let publicUrl = null;
+
+    if (file) {
+        file = await imageCompression(file, { maxSizeMB: 0.2, maxWidthOrHeight: 1024 });
+        const fileName = `${Date.now()}_receipt.jpg`;
+        await supabaseClient.storage.from('receipts').upload(fileName, file);
+        publicUrl = supabaseClient.storage.from('receipts').getPublicUrl(fileName).data.publicUrl;
     }
+
+    await supabaseClient.from('expenses').insert([{
+        description: document.getElementById('desc').value,
+        amount: parseFloat(document.getElementById('amount').value),
+        category: document.getElementById('category').value,
+        date: new Date().toISOString().split('T')[0],
+        receipt_url: publicUrl,
+        is_recurring: document.getElementById('is-recurring').checked
+    }]);
+
+    loader.style.display = 'none';
+    e.target.reset();
+    fetchExpenses();
+});
+
+async function fetchExpenses() {
+    const { data } = await supabaseClient.from('expenses').select('*').order('date', { ascending: false });
+    expenses = data || [];
+    updateUI();
 }
 
 function updateUI() {
     const list = document.getElementById('expense-list');
-    const totalDisplay = document.getElementById('total-amount');
-    const searchTerm = document.getElementById('search-input').value.toLowerCase();
-    const filter = document.getElementById('date-filter').value;
-    const today = new Date().toISOString().split('T')[0];
-    
     list.innerHTML = '';
     let total = 0;
-    let totalsByCategory = {};
+    let categories = {};
 
-    expenses.forEach((item) => {
-        const matchesSearch = item.description.toLowerCase().includes(searchTerm);
-        const matchesDate = filter === 'all' || item.date === today;
-
-        if (matchesSearch && matchesDate) {
-            total += item.amount;
-            totalsByCategory[item.category] = (totalsByCategory[item.category] || 0) + item.amount;
-            
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <div>
-                    <strong>${item.description}</strong> <small>(${item.category})</small><br>
-                    <span style="font-size: 12px">${item.date}</span>
-                    ${item.receipt_url ? ` | <a href="${item.receipt_url}" target="_blank">📄 Receipt</a>` : ''}
-                </div>
-                <div>
-                    <b>$${item.amount.toFixed(2)}</b>
-                    <button onclick="deleteExpense('${item.id}')" style="width:auto; margin-left:10px; color:red; border:none; background:none; cursor:pointer">X</button>
-                </div>
-            `;
-            list.appendChild(li);
-        }
+    expenses.forEach(item => {
+        total += item.amount;
+        categories[item.category] = (categories[item.category] || 0) + item.amount;
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div><b>${item.description}</b> ${item.is_recurring ? '🔄' : ''}<br><small>${item.date}</small></div>
+            <div>${rupee.format(item.amount)} <button onclick="deleteExp('${item.id}')" style="width:auto;color:red;border:none;background:none;">✕</button></div>
+        `;
+        list.appendChild(li);
     });
 
-    totalDisplay.innerText = `$${total.toFixed(2)}`;
-    updateBudget(total);
-    renderChart(totalsByCategory);
+    document.getElementById('total-amount').innerText = rupee.format(total);
+    renderChart(categories);
 }
 
-// --- FEATURES ---
-async function deleteExpense(id) {
-    const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
-    if (!error) fetchExpenses();
-}
-
-function updateBudget(total) {
-    const budgetInput = document.getElementById('budget-input');
-    const limit = parseFloat(budgetInput.value) || 1000;
-    const perc = Math.min((total / limit) * 100, 100);
-    
-    const progressBar = document.getElementById('progress-bar');
-    progressBar.style.width = perc + "%";
-    
-    // Change color based on percentage
-    if (perc < 70) progressBar.style.background = "#00b894";
-    else if (perc < 90) progressBar.style.background = "#fdcb6e";
-    else progressBar.style.background = "#ff7675";
-
-    document.getElementById('budget-status').innerText = `$${(limit - total).toFixed(2)} left`;
-}
-
-// AI OCR Scanning
-document.getElementById('scan-btn').addEventListener('click', async () => {
-    const fileInput = document.getElementById('receipt-upload');
-    const file = fileInput.files[0];
-    if (!file) return alert("Select a photo of a receipt first");
-    
-    const status = document.getElementById('ocr-status');
-    status.style.display = 'block';
-    
-    try {
-        const { data: { text } } = await Tesseract.recognize(file, 'eng');
-        const matches = text.match(/\d+\.\d{2}/g);
-        if (matches) {
-            const maxPrice = Math.max(...matches.map(Number));
-            document.getElementById('amount').value = maxPrice;
-        } else {
-            alert("Could not find a price. Try a clearer photo.");
-        }
-    } catch (e) {
-        console.error(e);
-    } finally {
-        status.style.display = 'none';
-    }
-});
-
-// CSV Export
-document.getElementById('export-btn').addEventListener('click', () => {
-    if (expenses.length === 0) return;
-    const headers = ["Date", "Description", "Category", "Amount"];
-    const rows = expenses.map(e => [e.date, `"${e.description}"`, e.category, e.amount]);
-    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'expenses.csv';
-    a.click();
-});
-
-// Chart.js Rendering
 function renderChart(data) {
     const ctx = document.getElementById('expenseChart').getContext('2d');
     if (myChart) myChart.destroy();
@@ -185,13 +114,23 @@ function renderChart(data) {
         type: 'doughnut',
         data: {
             labels: Object.keys(data),
-            datasets: [{ 
-                data: Object.values(data), 
-                backgroundColor: ['#00b894', '#0984e3', '#fdcb6e', '#e17055', '#6c5ce7'] 
-            }]
-        },
-        options: { plugins: { legend: { position: 'bottom' } }, responsive: true }
+            datasets: [{ data: Object.values(data), backgroundColor: ['#00a8ff','#9c88ff','#fbc531','#4cd137','#e84118'] }]
+        }
     });
 }
 
+async function deleteExp(id) {
+    await supabaseClient.from('expenses').delete().eq('id', id);
+    fetchExpenses();
+}
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    location.reload();
+});
+
 // Theme
+document.getElementById('theme-toggle').addEventListener('click', () => {
+    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+});
