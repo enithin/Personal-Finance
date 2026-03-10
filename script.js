@@ -81,9 +81,26 @@ document.getElementById('expense-form').addEventListener('submit', async (e) => 
 });
 
 async function fetchExpenses() {
-    const { data } = await supabaseClient.from('expenses').select('*').order('date', { ascending: false });
-    expenses = data || [];
-    updateUI();
+    // 1. Get the current logged-in user
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    // 2. Fetch data from Supabase
+    const { data, error } = await supabaseClient
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id) // Only get THIS user's data
+        .order('date', { ascending: false });
+    
+    if (error) {
+        console.error("Error fetching:", error.message);
+        return;
+    }
+
+    // 3. IMPORTANT: Update the global variable
+    expenses = data || []; 
+    
+    // 4. Trigger the UI update
+    updateUI(); 
 }
 
 function updateUI() {
