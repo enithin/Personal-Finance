@@ -7,8 +7,19 @@ let myChart = null;
 
 // --- AUTH LOGIC ---
 async function checkUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) showApp(); else showAuth();
+    try {
+        // Use the .auth property explicitly
+        const { data, error } = await supabaseClient.auth.getUser();
+        
+        if (error || !data.user) {
+            showAuth();
+        } else {
+            showApp();
+        }
+    } catch (err) {
+        console.error("Auth check failed:", err);
+        showAuth();
+    }
 }
 
 function showApp() {
