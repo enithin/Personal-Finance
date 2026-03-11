@@ -155,8 +155,29 @@ async function deleteExp(id) {
 function updateChart(data) {
     const ctx = document.getElementById('expenseChart').getContext('2d');
     if (myChart) myChart.destroy();
+    
+    // Vibrant Neon Palette
+    const colors = ['#6366f1', '#f43f5e', '#10b981', '#fbbf24', '#a855f7'];
+    
     myChart = new Chart(ctx, {
         type: 'doughnut',
-        data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#3498db', '#2ecc71', '#f1c40f', '#e74c3c'] }] }
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                data: Object.values(data),
+                backgroundColor: colors,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                borderWidth: 2,
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            plugins: {
+                legend: {
+                    labels: { color: '#f8fafc', font: { family: 'Inter', weight: '600' } }
+                }
+            },
+            cutout: '70%'
+        }
     });
 }
