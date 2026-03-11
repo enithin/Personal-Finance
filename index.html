@@ -1,89 +1,70 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinSwift AI - Smart Expense Tracker</title>
+    <title>FinSwift AI - Personal Finance</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/browser-image-compression/2.0.2/browser-image-compression.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div id="auth-container" class="container">
         <h1>FinSwift AI</h1>
-        <p>Login to sync your expenses</p>
-        <div class="auth-box">
-            <input type="email" id="email" placeholder="Email">
-            <input type="password" id="password" placeholder="Password">
-            <button id="login-btn" class="primary">Login</button>
-            <div class="divider"><span>OR</span></div>
-            <button id="google-login-btn" class="secondary">
-                <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="18"> Continue with Google
-            </button>
-            <button id="signup-btn" class="link-btn">New here? Sign Up</button>
-        </div>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button id="login-btn">Login</button>
+        <button id="signup-btn" class="secondary">Sign Up</button>
     </div>
 
-    <div id="app-container" class="container" style="display: none;">
+    <div id="app-container" class="container" style="display:none;">
         <header>
-            <div class="header-top">
-                <h2>My Dashboard</h2>
-                <div class="header-btns">
-                    <button id="theme-toggle">🌙</button>
-                    <button id="logout-btn" class="danger-small">Logout</button>
-                </div>
-            </div>
-            <div class="budget-card">
-                <div class="total-box">
-                    <small>Total Spent</small>
-                    <h1 id="total-amount">₹0.00</h1>
-                </div>
-                <div class="progress-box">
-                    <label>Monthly Goal: ₹<input type="number" id="budget-input" value="50000"></label>
-                    <div class="progress-bar-bg"><div id="progress-bar"></div></div>
-                    <small id="budget-status">Checking budget...</small>
-                </div>
-            </div>
+            <h1>My Dashboard</h1>
+            <button id="logout-btn">Logout</button>
         </header>
 
-        <div class="dashboard-grid">
-            <aside class="controls">
+        <div class="grid">
+            <section>
                 <form id="expense-form">
-                    <input type="text" id="desc" placeholder="What did you buy?" required>
-                    <input type="number" id="amount" placeholder="Amount (₹)" step="0.01" required>
+                    <h3>Add Expense</h3>
+                    <input type="text" id="desc" placeholder="Description" required>
+                    <input type="number" id="amount" placeholder="Amount (₹)" required>
                     <select id="category">
-                        <option value="Food">🍔 Food</option>
-                        <option value="Transport">🚗 Transport</option>
-                        <option value="Rent">🏠 Rent</option>
-                        <option value="Shopping">🛍️ Shopping</option>
-                        <option value="Other">📦 Other</option>
+                        <option value="Food">Food</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Health">Health</option>
                     </select>
-                    <label class="check-label">
-                        <input type="checkbox" id="is-recurring"> Repeat every month?
-                    </label>
-                    <div class="file-group">
-                        <input type="file" id="receipt-upload" accept="image/*">
-                        <button type="button" id="scan-btn" class="ai-btn">🔍 AI Scan</button>
-                    </div>
-                    <div id="loader" style="display:none;" class="spinner"></div>
-                    <button type="submit" class="primary" id="submit-btn">Add Expense</button>
+                    <input type="file" id="receipt-upload" accept="image/*">
+                    <button type="button" id="scan-btn">🔍 AI Scan Receipt</button>
+                    <label><input type="checkbox" id="is-recurring"> Recurring Monthly?</label>
+                    <button type="submit" id="submit-btn">Add Expense</button>
                 </form>
-                <div class="chart-box">
+
+                <div id="budget-settings">
+                    <h3>🎯 Set Budget</h3>
+                    <select id="budget-category">
+                        <option value="Food">Food</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Entertainment">Entertainment</option>
+                    </select>
+                    <input type="number" id="budget-val" placeholder="Limit (₹)">
+                    <button onclick="saveBudget()">Set Limit</button>
+                </div>
+            </section>
+
+            <section>
+                <div class="controls">
+                    <input type="month" id="month-picker">
+                    <button onclick="downloadPDF()">📄 Export PDF</button>
+                </div>
+                
+                <div class="stats-card">
+                    <h2>Total: <span id="total-amount">₹0</span></h2>
                     <canvas id="expenseChart"></canvas>
                 </div>
-            </aside>
-
-            <main class="history">
-                <div class="list-header">
-                    <input type="text" id="search-input" placeholder="Search expenses...">
-                    <button id="export-btn">📊 Export CSV</button>
-                </div>
-                <ul id="expense-list"></ul>
-            </main>
-        </div>
-    </div>
-    <script src="script.js"></script>
-</body>
-</html>
