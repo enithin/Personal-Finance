@@ -67,7 +67,6 @@ document.getElementById('login-btn').addEventListener('click', async (e) => {
     } else {
         console.log("Login Success:", data);
     }
-});
 
 // Logout
 document.getElementById('logout-btn').addEventListener('click', async () => {
