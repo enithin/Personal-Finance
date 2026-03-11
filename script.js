@@ -56,15 +56,41 @@ window.addExpense = async () => {
 };
 
 window.saveBudget = async () => {
+    // 1. Get the current logged-in user
     const { data: { user } } = await supabaseClient.auth.getUser();
-    const cat = document.getElementById('budget-cat-set').value;
-    const amt = document.getElementById('budget-amt-set').value;
-    if(!amt) return alert("Please enter a budget amount");
+    if (!user) return alert("You must be logged in to save a budget.");
 
-    await supabaseClient.from('budgets').upsert({ 
-        user_id: user.id, category: cat, amount: parseFloat(amt) 
-    }, { onConflict: 'user_id, category' });
-    window.fetchData();
+    // 2. Grab values from the HTML inputs
+    const category = document.getElementById('budget-cat-set').value;
+    const amount = document.getElementById('budget-amt-set').value;
+
+    // 3. Validation
+    if (!amount || parseFloat(amount) <= 0) {
+        return alert("Please enter a valid budget amount.");
+    }
+
+    // 4. Upsert into Supabase (Update if category exists, Insert if it doesn't)
+    const { error } = await supabaseClient
+        .from('budgets')
+        .upsert({ 
+            user_id: user.id, 
+            category: category, 
+            amount: parseFloat(amount) 
+        }, { 
+            onConflict: 'user_id, category' 
+        });
+
+    if (error) {
+        console.error("Budget Error:", error);
+        alert("Failed to save budget: " + error.message);
+    } else {
+        // 5. Refresh data to update the progress bars immediately
+        window.fetchData();
+        alert(`Budget for ${category} updated successfully!`);
+        
+        // Clear input
+        document.getElementById('budget-amt-set').value = '';
+    }
 };
 
 window.deleteItem = async (table, id) => {
