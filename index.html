@@ -3,56 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinSwift AI | Ultimate Dashboard</title>
+    <title>FinSwift AI Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
     <div id="auth-container" class="container">
-        <div class="stats-card auth-card">
+        <div class="stats-card">
             <h1>FinSwift AI</h1>
-            <p id="auth-msg" style="color: #f43f5e;"></p>
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Password">
-            <button onclick="handleAuth('login')">Sign In</button>
-            <button onclick="handleAuth('signup')" class="secondary">Create Account</button>
+            <button id="login-btn">Sign In</button>
+            <button id="signup-btn" class="secondary">Create Account</button>
         </div>
     </div>
 
     <div id="app-container" class="container" style="display:none;">
         <header class="stats-card header-flex">
-            <div id="user-profile">
-                <span id="user-name">Welcome!</span>
-            </div>
+            <span id="user-name">Welcome!</span>
             <button id="logout-btn" class="small-btn">Logout</button>
         </header>
 
         <div class="grid">
             <section class="stack">
                 <div class="stats-card balance-card">
-                    <small>Monthly Net Balance</small>
                     <h2 id="net-balance">₹0.00</h2>
                 </div>
 
                 <div class="stats-card">
-                    <h3>🔄 Recurring Bills</h3>
-                    <div id="recurring-list"></div> 
-                    <div class="vibrant-form">
-                        <input type="text" id="rec-name" placeholder="Netflix, Rent, etc.">
-                        <input type="number" id="rec-amount" placeholder="Amount (₹)">
-                        <button id="add-rec-btn" style="background:#a855f7;">Add Bill</button>
-                    </div>
+                    <h3>🎯 Set Monthly Budget</h3>
+                    <select id="budget-cat">
+                        <option value="Food">Food</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Bills">Bills</option>
+                        <option value="Fun">Fun</option>
+                    </select>
+                    <input type="number" id="budget-amt" placeholder="Limit (₹)">
+                    <button id="set-budget-btn" style="background:#6366f1;">Update Budget</button>
                 </div>
 
-                <form id="income-form" class="stats-card">
-                    <h3>💰 Add Income</h3>
-                    <input type="text" id="inc-source" placeholder="Source">
-                    <input type="number" id="inc-amount" placeholder="Amount">
-                    <button type="submit" style="background:#10b981;">Save Income</button>
-                </form>
+                <div class="stats-card">
+                    <h3>📝 Recent Transactions</h3>
+                    <div id="expense-list"></div>
+                </div>
             </section>
 
             <section class="stack">
@@ -60,20 +55,11 @@
                     <input type="month" id="month-picker">
                     <canvas id="expenseChart"></canvas>
                 </div>
-
-                <div class="stats-card">
-                    <h3>🎯 Savings Goals</h3>
-                    <div id="goals-container"></div>
-                    <div class="vibrant-form">
-                        <input type="text" id="goal-name" placeholder="Goal Name">
-                        <input type="number" id="goal-target" placeholder="Target Amount">
-                        <button id="add-goal-btn" style="background:#fbbf24; color:#1e1b4b;">New Goal</button>
-                    </div>
-                </div>
+                <div id="budget-status" class="stats-card"><h3>Budgets</h3></div>
+                <div id="goals-container" class="stats-card"><h3>🎯 Goals</h3></div>
             </section>
         </div>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
