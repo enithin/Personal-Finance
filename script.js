@@ -5,7 +5,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let myChart;
 const rupee = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
 
-// --- GLOBAL FUNCTIONS (Attached to window so HTML can see them) ---
+// --- 1. ATTACH FUNCTIONS TO WINDOW (Fixes ReferenceErrors) ---
 
 window.handleAuth = async (type) => {
     const email = document.getElementById('email').value;
@@ -22,12 +22,10 @@ window.addIncome = async () => {
     const { data: { user } } = await supabaseClient.auth.getUser();
     const source = document.getElementById('inc-source').value;
     const amount = document.getElementById('inc-amount').value;
-    if(!source || !amount) return alert("Fill all fields");
+    if(!source || !amount) return alert("Please fill all fields");
     
     await supabaseClient.from('income').insert([{ 
-        user_id: user.id, 
-        source, 
-        amount: parseFloat(amount), 
+        user_id: user.id, source, amount: parseFloat(amount), 
         date: new Date().toISOString().split('T')[0] 
     }]);
     window.fetchData();
@@ -38,16 +36,64 @@ window.addExpense = async () => {
     const desc = document.getElementById('exp-desc').value;
     const amt = document.getElementById('exp-amount').value;
     const cat = document.getElementById('exp-cat').value;
-    if(!desc || !amt) return alert("Fill all fields");
+    const fileInput = document.getElementById('exp-bill');
+    let billUrl = null;
+
+    if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const blob = await compressImage(file);
+        const path = `${user.id}/${Date.now()}.jpg`;
+        const { error } = await supabaseClient.storage.from('bills').upload(path, blob);
+        if (!error) {
+            const { data: pUrl } = supabaseClient.storage.from('bills').getPublicUrl(path);
+            billUrl = pUrl.publicUrl;
+        }
+    }
 
     await supabaseClient.from('expenses').insert([{ 
-        user_id: user.id, 
-        description: desc, 
-        amount: parseFloat(amt), 
-        category: cat, 
-        date: new Date().toISOString().split('T')[0] 
+        user_id: user.id, description: desc, amount: parseFloat(amt), 
+        category: cat, bill_url: billUrl, date: new Date().toISOString().split('T')[0] 
     }]);
     window.fetchData();
+};
+
+window.saveBudget = async () => {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const cat = document.getElementById('budget-cat-set').value;
+    const amt = document.getElementById('budget-amt-set').value;
+    await supabaseClient.from('budgets').upsert({ 
+        user_id: user.id, category: cat, amount: parseFloat(amt) 
+    }, { onConflict: 'user_id, category' });
+    window.fetchData();
+};
+
+window.downloadPDF = async () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    const [exp, inc] = await Promise.all([
+        supabaseClient.from('expenses').select('*').eq('user_id', user.id),
+        supabaseClient.from('income').select('*').eq('user_id', user.id)
+    ]);
+
+    doc.setFontSize(18);
+    doc.text("FinSwift AI Financial Report", 14, 20);
+    
+    doc.autoTable({
+        startY: 30,
+        head: [['Date', 'Description', 'Amount']],
+        body: exp.data.map(e => [e.date, e.description, rupee.format(e.amount)]),
+    });
+
+    doc.save(`FinSwift_Report_${new Date().toLocaleDateString()}.pdf`);
+};
+
+window.deleteExp = async (id) => {
+    if(confirm("Delete this transaction?")) {
+        await supabaseClient.from('expenses').delete().eq('id', id);
+        window.fetchData();
+    }
 };
 
 window.fetchData = async () => {
@@ -62,10 +108,31 @@ window.fetchData = async () => {
         supabaseClient.from('income').select('*').eq('user_id', user.id).gte('date', start).lte('date', end),
         supabaseClient.from('budgets').select('*').eq('user_id', user.id)
     ]);
+
     renderUI(exp.data || [], inc.data || [], bud.data || []);
 };
 
-// --- INTERNAL UI LOGIC ---
+// --- 2. INTERNAL HELPERS ---
+
+async function compressImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const scale = 800 / img.width;
+                canvas.width = 800;
+                canvas.height = img.height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.6);
+            };
+        };
+    });
+}
 
 function renderUI(exp, inc, bud) {
     const tExp = exp.reduce((s, e) => s + Number(e.amount), 0);
@@ -74,9 +141,9 @@ function renderUI(exp, inc, bud) {
 
     const list = document.getElementById('expense-list');
     list.innerHTML = exp.map(e => `
-        <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
-            <span>${e.description}</span>
-            <span>${rupee.format(e.amount)}</span>
+        <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <span>${e.description} ${e.bill_url ? `<a href="${e.bill_url}" target="_blank" style="color:#a855f7; font-size:10px;">[Bill]</a>` : ''}</span>
+            <span>${rupee.format(e.amount)} <button onclick="deleteExp('${e.id}')" style="color:#f43f5e; border:none; background:none; cursor:pointer;">✕</button></span>
         </div>
     `).join('') || '<p style="text-align:center; opacity:0.5;">No entries</p>';
 
@@ -93,7 +160,7 @@ function updateChart(data) {
     });
 }
 
-// --- INITIALIZATION ---
+// --- 3. AUTO-INIT ---
 
 supabaseClient.auth.onAuthStateChange((event, session) => {
     document.getElementById('auth-container').style.display = session ? 'none' : 'block';
