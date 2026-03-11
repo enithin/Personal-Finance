@@ -43,13 +43,24 @@ function showAuth() {
     document.getElementById('app-container').style.display = 'none';
 }
 
-// Google Login Handler
-document.getElementById('google-login-btn').addEventListener('click', async () => {
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin }
+// Replace your login listener with this one
+document.getElementById('login-btn').addEventListener('click', async (e) => {
+    e.preventDefault(); // Stop the page from refreshing
+    console.log("Login button clicked!"); // If you don't see this in console, the button isn't linked!
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password,
     });
-    if (error) alert("Google Error: " + error.message);
+
+    if (error) {
+        alert("Login Error: " + error.message);
+    } else {
+        console.log("Login Success:", data);
+    }
 });
 
 // Logout
