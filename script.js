@@ -1,20 +1,22 @@
 const SUPABASE_URL = 'https://vxzmurshrtcnupxltrdj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4em11cnNocnRjbnVweGx0cmRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTQ5OTEsImV4cCI6MjA4ODczMDk5MX0.KBsJd3Sv75onHEI7plRgdwk1eQnOK7tb7rwtgB9Vu30';
 
-let supabaseClient, myChart, currentExpenses = [];
+let supabaseClient, myChart;
 const rupee = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
 
 window.onload = () => {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Set default month
     const now = new Date();
-    document.getElementById('month-picker').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    document.getElementById('month-picker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     supabaseClient.auth.onAuthStateChange((event, session) => {
         if (session) {
             document.getElementById('auth-container').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
+            updateProfileUI(session.user);
             fetchExpenses();
-            predictNextMonth();
         } else {
             document.getElementById('auth-container').style.display = 'block';
             document.getElementById('app-container').style.display = 'none';
@@ -22,83 +24,113 @@ window.onload = () => {
     });
 };
 
-// Auth
-document.getElementById('login-btn').onclick = async () => {
-    const { error } = await supabaseClient.auth.signInWithPassword({
-        email: document.getElementById('email').value,
-        password: document.getElementById('password').value
-    });
-    if (error) alert(error.message);
-};
-
-document.getElementById('signup-btn').onclick = async () => {
-    const { error } = await supabaseClient.auth.signUp({
-        email: document.getElementById('email').value,
-        password: document.getElementById('password').value
-    });
-    alert(error ? error.message : "Check email for confirmation!");
-};
-
-document.getElementById('logout-btn').onclick = () => supabaseClient.auth.signOut();
-
-// Fetch Data
-async function fetchExpenses() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const [year, month] = document.getElementById('month-picker').value.split('-');
+// --- AUTH FUNCTIONS ---
+async function handleAuth(type) {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const msg = document.getElementById('auth-msg');
     
-    const [expRes, budRes] = await Promise.all([
-        supabaseClient.from('expenses').select('*').eq('user_id', user.id)
-            .gte('date', `${year}-${month}-01`).lte('date', `${year}-${month}-31`).order('date', {ascending: false}),
-        supabaseClient.from('budgets').select('*').eq('user_id', user.id)
-    ]);
-
-    currentExpenses = expRes.data || [];
-    updateUI(currentExpenses, budRes.data || []);
+    try {
+        const { error } = (type === 'login') 
+            ? await supabaseClient.auth.signInWithPassword({ email, password })
+            : await supabaseClient.auth.signUp({ email, password });
+        
+        if (error) throw error;
+    } catch (err) {
+        msg.innerText = err.message;
+    }
 }
 
-function updateUI(expenses, budgets) {
-    const list = document.getElementById('expense-list');
-    const budStatus = document.getElementById('budget-status');
-    list.innerHTML = ''; budStatus.innerHTML = '<h3>Budget Usage</h3>';
-    let total = 0, catData = {};
+document.getElementById('login-btn').onclick = () => handleAuth('login');
+document.getElementById('signup-btn').onclick = () => handleAuth('signup');
+document.getElementById('logout-btn').onclick = () => supabaseClient.auth.signOut();
 
-    expenses.forEach(item => {
-        total += Number(item.amount);
-        catData[item.category] = (catData[item.category] || 0) + Number(item.amount);
+document.getElementById('google-btn').onclick = () => {
+    supabaseClient.auth.signInWithOAuth({ provider: 'google' });
+};
+
+function updateProfileUI(user) {
+    const name = user.user_metadata.full_name || user.email.split('@')[0];
+    document.getElementById('user-name').innerText = `Hi, ${name}`;
+    if (user.user_metadata.avatar_url) {
+        const img = document.getElementById('user-avatar');
+        img.src = user.user_metadata.avatar_url;
+        img.style.display = 'block';
+    }
+}
+
+// --- DATA FUNCTIONS ---
+async function fetchExpenses() {
+    const loader = document.getElementById('loader');
+    loader.style.display = 'flex';
+    
+    try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const [year, month] = document.getElementById('month-picker').value.split('-');
+        
+        const [expRes, budRes] = await Promise.all([
+            supabaseClient.from('expenses').select('*').eq('user_id', user.id)
+                .gte('date', `${year}-${month}-01`).lte('date', `${year}-${month}-31`),
+            supabaseClient.from('budgets').select('*').eq('user_id', user.id)
+        ]);
+
+        renderUI(expRes.data || [], budRes.data || []);
+    } catch (err) {
+        console.error(err);
+    } finally {
+        loader.style.display = 'none';
+    }
+}
+
+function renderUI(expenses, budgets) {
+    const list = document.getElementById('expense-list');
+    const budDiv = document.getElementById('budget-status');
+    list.innerHTML = ''; budDiv.innerHTML = '';
+    
+    let total = 0, cats = {};
+
+    expenses.forEach(e => {
+        total += Number(e.amount);
+        cats[e.category] = (cats[e.category] || 0) + Number(e.amount);
+        
         const li = document.createElement('li');
         li.className = 'stats-card';
-        li.style.display = 'flex'; li.style.justifyContent = 'space-between';
-        li.innerHTML = `<span><b>${item.description}</b><br>${item.date}</span> 
-                        <span>${rupee.format(item.amount)} <button onclick="deleteExp('${item.id}')" style="width:auto; background:none; color:red;">✕</button></span>`;
+        li.style.margin = '10px 0';
+        li.innerHTML = `<div style="display:flex; justify-content:space-between">
+            <span><b>${e.description}</b><br><small>${e.date}</small></span>
+            <span>${rupee.format(e.amount)} <button onclick="deleteExp('${e.id}')" style="width:auto; background:none; color:red; border:none; cursor:pointer">✕</button></span>
+        </div>`;
         list.appendChild(li);
     });
 
     document.getElementById('total-amount').innerText = rupee.format(total);
-    
+
     budgets.forEach(b => {
-        const spent = catData[b.category] || 0;
-        const per = Math.min((spent/b.amount)*100, 100);
-        budStatus.innerHTML += `<small>${b.category}</small>
-            <div style="width:100%; background:#eee; height:10px; border-radius:5px; margin-bottom:10px;">
-                <div style="width:${per}%; background:${per > 90 ? 'red':'green'}; height:100%; border-radius:5px;"></div>
-            </div>`;
+        const spent = cats[b.category] || 0;
+        const per = Math.min((spent / b.amount) * 100, 100);
+        budDiv.innerHTML += `<div style="margin-bottom:10px">
+            <small>${b.category}: ${rupee.format(spent)} / ${rupee.format(b.amount)}</small>
+            <div style="width:100%; background:#eee; height:8px; border-radius:4px"><div style="width:${per}%; background:${per>90?'red':'#2ecc71'}; height:100%; border-radius:4px"></div></div>
+        </div>`;
     });
-    renderChart(catData);
+
+    updateChart(cats);
 }
 
-// Actions
 document.getElementById('expense-form').onsubmit = async (e) => {
     e.preventDefault();
     const { data: { user } } = await supabaseClient.auth.getUser();
-    const category = document.getElementById('category').value;
     const amount = parseFloat(document.getElementById('amount').value);
+    const category = document.getElementById('category').value;
 
     await supabaseClient.from('expenses').insert([{
-        user_id: user.id, description: document.getElementById('desc').value,
-        amount: amount, category: category, date: new Date().toISOString().split('T')[0]
+        user_id: user.id,
+        description: document.getElementById('desc').value,
+        amount: amount,
+        category: category,
+        date: new Date().toISOString().split('T')[0]
     }]);
 
-    checkBudgetAlert(category, user.id);
     e.target.reset();
     fetchExpenses();
 };
@@ -106,56 +138,25 @@ document.getElementById('expense-form').onsubmit = async (e) => {
 async function saveBudget() {
     const { data: { user } } = await supabaseClient.auth.getUser();
     await supabaseClient.from('budgets').upsert({
-        user_id: user.id, 
+        user_id: user.id,
         category: document.getElementById('budget-category').value,
         amount: parseFloat(document.getElementById('budget-val').value)
-    }, { onConflict: 'user_id, category' });
+    }, { onConflict: 'user_id,category' });
     fetchExpenses();
 }
 
 async function deleteExp(id) {
-    await supabaseClient.from('expenses').delete().eq('id', id);
-    fetchExpenses();
+    if(confirm("Delete?")) {
+        await supabaseClient.from('expenses').delete().eq('id', id);
+        fetchExpenses();
+    }
 }
 
-// AI Functions
-document.getElementById('scan-btn').onclick = async () => {
-    const file = document.getElementById('receipt-upload').files[0];
-    if (!file) return alert("Select image");
-    const { data: { text } } = await Tesseract.recognize(file, 'eng');
-    const prices = text.match(/\d+\.\d{2}/g);
-    if (prices) document.getElementById('amount').value = Math.max(...prices.map(Number));
-};
-
-async function predictNextMonth() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const { data } = await supabaseClient.from('expenses').select('amount, date').eq('user_id', user.id);
-    if (data.length < 5) return;
-    
-    const monthly = {};
-    data.forEach(e => { const m = e.date.substring(0,7); monthly[m] = (monthly[m] || 0) + Number(e.amount); });
-    const vals = Object.values(monthly);
-    const n = vals.length;
-    let sX=0, sY=0, sXY=0, sX2=0;
-    vals.forEach((y, x) => { sX+=x; sY+=y; sXY+=x*y; sX2+=x*x; });
-    const slope = (n*sXY - sX*sY) / (n*sX2 - sX*sX);
-    const pred = slope * n + (sY - slope*sX)/n;
-    document.getElementById('prediction-text').innerHTML = `Next month estimate: <b>${rupee.format(pred)}</b>`;
-}
-
-function renderChart(data) {
+function updateChart(data) {
     const ctx = document.getElementById('expenseChart').getContext('2d');
     if (myChart) myChart.destroy();
     myChart = new Chart(ctx, {
         type: 'doughnut',
-        data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#3498db','#2ecc71','#f1c40f','#e74c3c','#9b59b6'] }] }
+        data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#3498db', '#2ecc71', '#f1c40f', '#e74c3c'] }] }
     });
-}
-
-function downloadPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.text("Expense Report", 14, 20);
-    doc.autoTable({ head: [['Date', 'Desc', 'Cat', 'Amt']], body: currentExpenses.map(e => [e.date, e.description, e.category, e.amount]) });
-    doc.save("report.pdf");
 }
