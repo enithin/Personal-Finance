@@ -4,6 +4,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FinSwift AI Pro</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <div id="auth-container" class="container">
+        <div class="stats-card auth-card">
+            <h1>FinSwift AI</h1>
+            <p id="auth-msg" style="color: #f43f5e;"></p>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            
+            <button onclick="handleAuth('login')">Sign In</button>
+            <button onclick="handleAuth('signup')" class="secondary">Create Account</button>
+        </div>
+    </div>
+
+    <div id="app-container" class="container" style="display:none;">
+        <header class="stats-card header-flex">
+            <span id="user-name">Welcome!</span>
+            <button onclick="logout()" class="small-btn">Logout</button>
+        </header>
+
+        <div class="grid">
+            <section class="stack">
+                <div class="stats-card balance-card">
+                    <h2 id="net-balance">₹0.00</h2>
+                </div>
+
+                <div class="stats-card">
+                    <h3>🎯 Set Budget</h3>
+                    <select id="budget-cat">
+                        <option value="Food">Food</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Bills">Bills</option>
+                    </select>
+                    <input type="number" id="budget-amt" placeholder="Limit">
+                    <button onclick="saveBudget()">Update</button>
+                </div>
+
+                <div class="stats-card">
+                    <h3>📝 History</h3>
+                    <div id="expense-list"></div>
+                </div>
+            </section>
+
+            <section class="stack">
+                <div class="stats-card">
+                    <input type="month" id="month-picker" onchange="fetchData()">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                <div id="budget-status" class="stats-card"></div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinSwift AI Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     
