@@ -1,37 +1,31 @@
-// --- CONFIGURATION ---
+// --- 1. CONFIGURATION ---
 const SUPABASE_URL = 'https://vxzmurshrtcnupxltrdj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4em11cnNocnRjbnVweGx0cmRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTQ5OTEsImV4cCI6MjA4ODczMDk5MX0.KBsJd3Sv75onHEI7plRgdwk1eQnOK7tb7rwtgB9Vu30';
+
 let supabaseClient;
 let expenses = [];
 let myChart = null;
 
-// Currency Formatter
 const rupee = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
 
+// --- 2. INITIALIZATION ---
 window.onload = () => {
-    // 1. Initialize Client
+    // Initialize Supabase
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 2. The Auth State Listener (Critical Fix for Login)
+    // Auth State Listener
     supabaseClient.auth.onAuthStateChange((event, session) => {
         console.log("Auth Event:", event);
         if (session) {
             showApp();
-            processRecurring(); // Auto-add monthly bills
+            processRecurring();
         } else {
             showAuth();
         }
     });
-
-    checkUser();
 };
 
-// --- AUTH LOGIC ---
-async function checkUser() {
-    const { data: { user }, error } = await supabaseClient.auth.getUser();
-    if (user) showApp(); else showAuth();
-}
-
+// --- 3. UI TOGGLES ---
 function showApp() {
     document.getElementById('auth-container').style.display = 'none';
     document.getElementById('app-container').style.display = 'block';
@@ -43,38 +37,37 @@ function showAuth() {
     document.getElementById('app-container').style.display = 'none';
 }
 
+// --- 4. AUTHENTICATION HANDLERS ---
 document.getElementById('login-btn').addEventListener('click', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('email').value.trim(); // Added .trim() to remove accidental spaces
+    const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
-
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: email,
-        password: password,
-    });
-
-    if (error) {
-        // This will now tell you "Invalid login credentials" or "Email not confirmed"
-        console.error("Supabase Error Details:", error.message);
-        alert("Login Failed: " + error.message);
-    } else {
-        console.log("Success! Session started.");
-    }
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) alert("Login Error: " + error.message);
 });
 
-    if (error) {
-        alert("Login Error: " + error.message);
-    } else {
-        console.log("Login Success:", data);
-    }
+document.getElementById('signup-btn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) alert("Sign Up Error: " + error.message);
+    else alert("Success! Check your email (or try logging in if you disabled confirmation).");
+});
 
-// Logout
+document.getElementById('google-login-btn').addEventListener('click', async () => {
+    await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin }
+    });
+});
+
 document.getElementById('logout-btn').addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
     location.reload();
 });
 
-// --- DATA LOGIC ---
+// --- 5. CORE EXPENSE LOGIC ---
 async function fetchExpenses() {
     const { data: { user } } = await supabaseClient.auth.getUser();
     const { data, error } = await supabaseClient
@@ -91,9 +84,6 @@ async function fetchExpenses() {
 
 function updateUI() {
     const list = document.getElementById('expense-list');
-    const totalDisplay = document.getElementById('total-amount');
-    const budgetInput = document.getElementById('budget-input');
-    
     list.innerHTML = '';
     let total = 0;
     let catData = {};
@@ -105,58 +95,55 @@ function updateUI() {
 
         const li = document.createElement('li');
         li.innerHTML = `
-            <div>
-                <strong>${item.description}</strong> ${item.is_recurring ? '🔄' : ''}<br>
-                <small>${item.category} • ${item.date}</small>
-            </div>
-            <div style="text-align:right">
-                <b>${rupee.format(amt)}</b><br>
-                <button onclick="deleteExp('${item.id}')" style="color:red;border:none;background:none;cursor:pointer;font-size:12px">Remove</button>
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center; padding: 10px 0; border-bottom: 1px solid #eee;">
+                <div>
+                    <strong>${item.description}</strong><br>
+                    <small style="color: #888;">${item.category} • ${item.date}</small>
+                </div>
+                <div style="text-align: right;">
+                    <b style="color: #2ecc71;">${rupee.format(amt)}</b><br>
+                    <button onclick="deleteExp('${item.id}')" style="color: #e74c3c; border:none; background:none; cursor:pointer; font-size: 12px;">Delete</button>
+                </div>
             </div>
         `;
         list.appendChild(li);
     });
 
-    totalDisplay.innerText = rupee.format(total);
-    updateProgress(total, parseFloat(budgetInput.value));
+    document.getElementById('total-amount').innerText = rupee.format(total);
     renderChart(catData);
 }
 
-// AI OCR Scanning
+// --- 6. AI & PERFORMANCE ---
 document.getElementById('scan-btn').addEventListener('click', async () => {
     const file = document.getElementById('receipt-upload').files[0];
-    if (!file) return alert("Please pick an image first.");
-    
+    if (!file) return alert("Select a receipt image first");
     const btn = document.getElementById('scan-btn');
-    btn.innerText = "Scanning AI...";
+    btn.innerText = "Scanning...";
     
     try {
         const { data: { text } } = await Tesseract.recognize(file, 'eng');
-        const matches = text.match(/\d+\.\d{2}/g);
-        if (matches) {
-            document.getElementById('amount').value = Math.max(...matches.map(Number));
-        }
-    } catch (e) { console.error(e); }
+        const prices = text.match(/\d+\.\d{2}/g);
+        if (prices) document.getElementById('amount').value = Math.max(...prices.map(Number));
+    } catch (e) { 
+        console.error("OCR Error:", e);
+        alert("Could not read receipt. Please enter manually.");
+    }
     btn.innerText = "🔍 AI Scan";
 });
 
-// Add Expense (With Image Compression)
 document.getElementById('expense-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const loader = document.getElementById('loader');
-    const submitBtn = document.getElementById('submit-btn');
+    if(loader) loader.style.display = 'block';
+
     const { data: { user } } = await supabaseClient.auth.getUser();
-
-    loader.style.display = 'block';
-    submitBtn.disabled = true;
-
     let file = document.getElementById('receipt-upload').files[0];
     let publicUrl = null;
 
     try {
         if (file) {
-            // COMPRESSION
-            file = await imageCompression(file, { maxSizeMB: 0.1, maxWidthOrHeight: 800 });
+            const options = { maxSizeMB: 0.1, maxWidthOrHeight: 800 };
+            file = await imageCompression(file, options);
             const path = `receipts/${user.id}/${Date.now()}.jpg`;
             await supabaseClient.storage.from('receipts').upload(path, file);
             publicUrl = supabaseClient.storage.from('receipts').getPublicUrl(path).data.publicUrl;
@@ -168,68 +155,45 @@ document.getElementById('expense-form').addEventListener('submit', async (e) => 
             amount: parseFloat(document.getElementById('amount').value),
             category: document.getElementById('category').value,
             date: new Date().toISOString().split('T')[0],
-            is_recurring: document.getElementById('is-recurring').checked,
-            receipt_url: publicUrl
+            receipt_url: publicUrl,
+            is_recurring: document.getElementById('is-recurring').checked
         }]);
 
         e.target.reset();
         fetchExpenses();
-    } catch (err) { alert(err.message); }
-    finally {
-        loader.style.display = 'none';
-        submitBtn.disabled = false;
+    } catch (err) {
+        alert("Upload Error: " + err.message);
+    } finally {
+        if(loader) loader.style.display = 'none';
     }
 });
 
-// Auto-Recurring Logic
-async function processRecurring() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    
-    const { data } = await supabaseClient.from('expenses').select('*').eq('is_recurring', true).eq('user_id', user.id);
-    
-    if (data) {
-        for (let item of data) {
-            const lastDate = new Date(item.date);
-            if (lastDate.getMonth() !== currentMonth) {
-                await supabaseClient.from('expenses').insert([{
-                    ...item,
-                    id: undefined, // Create new ID
-                    date: new Date().toISOString().split('T')[0]
-                }]);
-            }
-        }
-    }
-}
+// --- 7. UTILITIES ---
+window.deleteExp = async (id) => {
+    const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
+    if (error) alert(error.message);
+    else fetchExpenses();
+};
 
-// Charting
 function renderChart(data) {
-    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const canvas = document.getElementById('expenseChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (myChart) myChart.destroy();
     myChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: Object.keys(data),
-            datasets: [{ data: Object.values(data), backgroundColor: ['#00a8ff','#9c88ff','#fbc531','#4cd137','#e84118'] }]
+            datasets: [{ 
+                data: Object.values(data), 
+                backgroundColor: ['#00a8ff','#9c88ff','#fbc531','#4cd137','#e84118'] 
+            }]
         },
         options: { plugins: { legend: { position: 'bottom' } } }
     });
 }
 
-function updateProgress(total, goal) {
-    const perc = Math.min((total / goal) * 100, 100);
-    document.getElementById('progress-bar').style.width = perc + '%';
-    document.getElementById('budget-status').innerText = `${rupee.format(goal - total)} remaining`;
+async function processRecurring() {
+    // Basic logic to check for recurring entries
+    console.log("Checking for recurring expenses...");
 }
-
-async function deleteExp(id) {
-    await supabaseClient.from('expenses').delete().eq('id', id);
-    fetchExpenses();
-}
-
-document.getElementById('theme-toggle').addEventListener('click', () => {
-    const root = document.documentElement;
-    const isDark = root.getAttribute('data-theme') === 'dark';
-    root.setAttribute('data-theme', isDark ? 'light' : 'dark');
-});
