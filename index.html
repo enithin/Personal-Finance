@@ -71,4 +71,31 @@
                         <option value="Food">Food</option>
                         <option value="Rent">Rent</option>
                         <option value="Bills">Bills</option>
-                        <option value="Fun">Fun
+                        <option value="Fun">Fun</option>
+                    </select>
+                    <button type="submit">Add Expense</button>
+                </form>
+            </section>
+
+            <section class="stack">
+                <div class="stats-card">
+                    <input type="month" id="month-picker" onchange="fetchData()">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                <div id="budget-status" class="stats-card"><h3>Budgets</h3></div>
+                <div id="goals-list" class="stats-card">
+                    <h3>🎯 Savings Goals</h3>
+                    <div id="goals-container"></div>
+                    <div class="vibrant-form">
+                        <input type="text" id="goal-name" placeholder="Target Name">
+                        <input type="number" id="goal-target" placeholder="Target Amount">
+                        <button onclick="addGoal()" style="background:#fbbf24; color:#1e1b4b;">New Goal</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+    <div id="loader" style="display:none;">Processing...</div>
+    <script src="script.js"></script>
+</body>
+</html>
