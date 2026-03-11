@@ -3,50 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinSwift AI - Personal Finance</title>
+    <title>FinSwift AI Pro</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div id="auth-container" class="container">
-        <h1>Nithin</h1>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Password">
-        <button id="login-btn">Login</button>
-        <button id="signup-btn" class="secondary">Sign Up</button>
+        <div class="stats-card" style="text-align: center;">
+            <h1>FinSwift AI</h1>
+            <p id="auth-msg" style="color: red; font-size: 14px;"></p>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button id="login-btn">Sign In</button>
+            <button id="signup-btn" class="secondary">Create Account</button>
+            <div style="margin: 15px 0; color: #888;">OR</div>
+            <button id="google-btn" style="background: white; color: #444; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center;">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" style="margin-right: 10px;">
+                Continue with Google
+            </button>
+        </div>
     </div>
 
     <div id="app-container" class="container" style="display:none;">
-        <header>
-            <h1>My Dashboard</h1>
-            <button id="logout-btn">Logout</button>
+        <header class="stats-card" style="display: flex; justify-content: space-between; align-items: center;">
+            <div id="user-profile" style="display: flex; align-items: center; gap: 10px;">
+                <img id="user-avatar" src="" style="width: 35px; border-radius: 50%; display: none;">
+                <span id="user-name" style="font-weight: bold;">Welcome!</span>
+            </div>
+            <button id="logout-btn" style="width: auto; padding: 5px 15px;">Logout</button>
         </header>
 
         <div class="grid">
             <section>
-                <form id="expense-form">
-                    <h3>Add Expense</h3>
-                    <input type="text" id="desc" placeholder="Description" required>
+                <form id="expense-form" class="stats-card">
+                    <h3>New Expense</h3>
+                    <input type="text" id="desc" placeholder="What for?" required>
                     <input type="number" id="amount" placeholder="Amount (₹)" required>
                     <select id="category">
                         <option value="Food">Food</option>
                         <option value="Transport">Transport</option>
                         <option value="Rent">Rent</option>
                         <option value="Entertainment">Entertainment</option>
-                        <option value="Health">Health</option>
                     </select>
-                    <input type="file" id="receipt-upload" accept="image/*">
-                    <button type="button" id="scan-btn">🔍 AI Scan Receipt</button>
-                    <label><input type="checkbox" id="is-recurring"> Recurring Monthly?</label>
-                    <button type="submit" id="submit-btn">Add Expense</button>
+                    <button type="submit">Add Expense</button>
                 </form>
 
-                <div id="budget-settings">
-                    <h3>🎯 Set Budget</h3>
+                <div class="stats-card">
+                    <h3>Set Budget</h3>
                     <select id="budget-category">
                         <option value="Food">Food</option>
                         <option value="Transport">Transport</option>
@@ -54,17 +58,25 @@
                         <option value="Entertainment">Entertainment</option>
                     </select>
                     <input type="number" id="budget-val" placeholder="Limit (₹)">
-                    <button onclick="saveBudget()">Set Limit</button>
+                    <button onclick="saveBudget()">Update Budget</button>
                 </div>
             </section>
 
             <section>
-                <div class="controls">
-                    <input type="month" id="month-picker">
-                    <button onclick="downloadPDF()">📄 Export PDF</button>
-                </div>
-                
                 <div class="stats-card">
-                    <h2>Total: <span id="total-amount">₹0</span></h2>
+                    <input type="month" id="month-picker" onchange="fetchExpenses()">
+                    <h2 id="total-amount">₹0.00</h2>
                     <canvas id="expenseChart"></canvas>
                 </div>
+                <div id="budget-status"></div>
+                <ul id="expense-list" style="list-style: none; padding: 0;"></ul>
+            </section>
+        </div>
+    </div>
+
+    <div id="loader" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:9999;">Processing...</div>
+    <div id="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
