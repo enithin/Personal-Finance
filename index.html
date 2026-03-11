@@ -3,23 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinSwift AI Pro</title>
+    <title>FinSwift AI Pro | Deploy</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="script.js" defer></script>
 </head>
 <body>
-
     <div id="auth-container" class="container">
         <div class="stats-card auth-card">
             <h1>FinSwift AI</h1>
-            <p id="auth-msg" style="color: #f43f5e;"></p>
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Password">
-            
             <button onclick="handleAuth('login')">Sign In</button>
             <button onclick="handleAuth('signup')" class="secondary">Create Account</button>
         </div>
@@ -27,39 +24,68 @@
 
     <div id="app-container" class="container" style="display:none;">
         <header class="stats-card header-flex">
-            <span id="user-name">Welcome!</span>
-            <button onclick="logout()" class="small-btn">Logout</button>
+            <span id="user-name" style="font-weight:800;">FinSwift Dashboard</span>
+            <div>
+                <button onclick="downloadPDF()" class="small-btn" style="background:#a855f7;">📄 PDF</button>
+                <button onclick="logout()" class="small-btn">Logout</button>
+            </div>
         </header>
 
         <div class="grid">
             <section class="stack">
                 <div class="stats-card balance-card">
+                    <small>Monthly Net Balance</small>
                     <h2 id="net-balance">₹0.00</h2>
                 </div>
 
                 <div class="stats-card">
-                    <h3>🎯 Set Budget</h3>
-                    <select id="budget-cat">
-                        <option value="Food">Food</option>
-                        <option value="Rent">Rent</option>
-                        <option value="Bills">Bills</option>
-                    </select>
-                    <input type="number" id="budget-amt" placeholder="Limit">
-                    <button onclick="saveBudget()">Update</button>
+                    <h3>💰 Add Income</h3>
+                    <input type="text" id="inc-source" placeholder="Source">
+                    <input type="number" id="inc-amount" placeholder="Amount">
+                    <button onclick="addIncome()" style="background:#10b981;">Save Income</button>
                 </div>
 
                 <div class="stats-card">
-                    <h3>📝 History</h3>
-                    <div id="expense-list"></div>
+                    <h3>💸 Add Expense</h3>
+                    <input type="text" id="exp-desc" placeholder="Description">
+                    <input type="number" id="exp-amount" placeholder="Amount">
+                    <select id="exp-cat">
+                        <option value="Food">Food</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Bills">Bills</option>
+                        <option value="Fun">Fun</option>
+                    </select>
+                    <label style="font-size:10px; color:#a855f7;">Attach Bill (Optional)</label>
+                    <input type="file" id="exp-bill" accept="image/*">
+                    <button onclick="addExpense()">Save Expense</button>
+                </div>
+
+                <div class="stats-card">
+                    <h3>🎯 Monthly Budget</h3>
+                    <select id="budget-cat-set">
+                        <option value="Food">Food</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Bills">Bills</option>
+                        <option value="Fun">Fun</option>
+                    </select>
+                    <input type="number" id="budget-amt-set" placeholder="Limit">
+                    <button onclick="saveBudget()" style="background:#6366f1;">Set Budget</button>
                 </div>
             </section>
 
             <section class="stack">
                 <div class="stats-card">
-                    <input type="month" id="month-picker" onchange="fetchData()">
+                    <div style="display:flex; justify-content:space-between;">
+                        <h3>Overview</h3>
+                        <input type="month" id="month-picker" onchange="fetchData()">
+                    </div>
                     <canvas id="expenseChart"></canvas>
                 </div>
-                <div id="budget-status" class="stats-card"></div>
+                <div id="budget-status" class="stats-card"><h3>Budgets</h3></div>
+                <div class="stats-card">
+                    <h3>📝 Recent Transactions</h3>
+                    <div id="expense-list"></div>
+                </div>
             </section>
         </div>
     </div>
