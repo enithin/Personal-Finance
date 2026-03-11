@@ -14,3 +14,26 @@ button:hover { transform: translateY(-2px); filter: brightness(1.2); }
 .google-style { background: white; color: #1e1b4b; display: flex; align-items: center; justify-content: center; gap: 10px; }
 #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
+.list-item {
+    display: flex; 
+    justify-content: space-between; 
+    padding: 10px 0; 
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 14px;
+}
+.del-btn {
+    color: #f43f5e; 
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+    margin-left: 10px;
+    font-weight: bold;
+}
+#search-bar {
+    width: 100%;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    border-radius: 6px;
+}
