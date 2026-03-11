@@ -1,3 +1,5 @@
+// --- Replace your entire script.js with this corrected version ---
+
 const SUPABASE_URL = 'https://vxzmurshrtcnupxltrdj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4em11cnNocnRjbnVweGx0cmRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNTQ5OTEsImV4cCI6MjA4ODczMDk5MX0.KBsJd3Sv75onHEI7plRgdwk1eQnOK7tb7rwtgB9Vu30';
 
@@ -9,14 +11,17 @@ window.onload = () => {
     
     // Set default month
     const now = new Date();
-    document.getElementById('month-picker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const picker = document.getElementById('month-picker');
+    if(picker) picker.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
     supabaseClient.auth.onAuthStateChange((event, session) => {
         if (session) {
             document.getElementById('auth-container').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
-            updateProfileUI(session.user);
-            fetchExpenses();
+            
+            // Assign Button Listeners only after elements are visible
+            initButtonListeners();
+            fetchData();
         } else {
             document.getElementById('auth-container').style.display = 'block';
             document.getElementById('app-container').style.display = 'none';
@@ -24,160 +29,120 @@ window.onload = () => {
     });
 };
 
-// --- AUTH FUNCTIONS ---
+function initButtonListeners() {
+    // These selectors MUST match your HTML IDs exactly
+    const logoutBtn = document.getElementById('logout-btn');
+    if(logoutBtn) logoutBtn.onclick = () => supabaseClient.auth.signOut();
+
+    const addRecBtn = document.getElementById('add-rec-btn');
+    if(addRecBtn) addRecBtn.onclick = addRecurringBill;
+
+    const addGoalBtn = document.getElementById('add-goal-btn');
+    if(addGoalBtn) addGoalBtn.onclick = addGoal;
+}
+
 async function handleAuth(type) {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    const msg = document.getElementById('auth-msg');
-    
-    try {
-        const { error } = (type === 'login') 
-            ? await supabaseClient.auth.signInWithPassword({ email, password })
-            : await supabaseClient.auth.signUp({ email, password });
-        
-        if (error) throw error;
-    } catch (err) {
-        msg.innerText = err.message;
-    }
+    const { error } = (type === 'login') 
+        ? await supabaseClient.auth.signInWithPassword({ email, password })
+        : await supabaseClient.auth.signUp({ email, password });
+    if (error) alert(error.message);
 }
 
-document.getElementById('login-btn').onclick = () => handleAuth('login');
-document.getElementById('signup-btn').onclick = () => handleAuth('signup');
-document.getElementById('logout-btn').onclick = () => supabaseClient.auth.signOut();
+async function fetchData() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const [y, m] = document.getElementById('month-picker').value.split('-');
+    const start = `${y}-${m}-01`, end = `${y}-${m}-31`;
 
-document.getElementById('google-btn').onclick = () => {
-    supabaseClient.auth.signInWithOAuth({ provider: 'google' });
-};
-
-function updateProfileUI(user) {
-    const name = user.user_metadata.full_name || user.email.split('@')[0];
-    document.getElementById('user-name').innerText = `Hi, ${name}`;
-    if (user.user_metadata.avatar_url) {
-        const img = document.getElementById('user-avatar');
-        img.src = user.user_metadata.avatar_url;
-        img.style.display = 'block';
-    }
-}
-
-// --- DATA FUNCTIONS ---
-async function fetchExpenses() {
-    const loader = document.getElementById('loader');
-    loader.style.display = 'flex';
-    
     try {
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        const [year, month] = document.getElementById('month-picker').value.split('-');
-        
-        const [expRes, budRes] = await Promise.all([
-            supabaseClient.from('expenses').select('*').eq('user_id', user.id)
-                .gte('date', `${year}-${month}-01`).lte('date', `${year}-${month}-31`),
-            supabaseClient.from('budgets').select('*').eq('user_id', user.id)
+        const [exp, inc, bud, rec, gol] = await Promise.all([
+            supabaseClient.from('expenses').select('*').eq('user_id', user.id).gte('date', start).lte('date', end),
+            supabaseClient.from('income').select('*').eq('user_id', user.id).gte('date', start).lte('date', end),
+            supabaseClient.from('budgets').select('*').eq('user_id', user.id),
+            supabaseClient.from('recurring_bills').select('*').eq('user_id', user.id),
+            supabaseClient.from('savings_goals').select('*').eq('user_id', user.id)
         ]);
 
-        renderUI(expRes.data || [], budRes.data || []);
-    } catch (err) {
-        console.error(err);
-    } finally {
-        loader.style.display = 'none';
-    }
+        renderUI(exp.data || [], inc.data || [], bud.data || [], rec.data || [], gol.data || []);
+    } catch (e) { console.error("Fetch Error:", e); }
 }
 
-function renderUI(expenses, budgets) {
-    const list = document.getElementById('expense-list');
-    const budDiv = document.getElementById('budget-status');
-    list.innerHTML = ''; budDiv.innerHTML = '';
-    
-    let total = 0, cats = {};
+function renderUI(exp, inc, bud, rec, gol) {
+    // 1. Calculate Balance
+    const activeRecTotal = rec.filter(r => r.is_active).reduce((s, r) => s + Number(r.amount), 0);
+    const totalExp = exp.reduce((s, e) => s + Number(e.amount), 0) + activeRecTotal;
+    const totalInc = inc.reduce((s, i) => s + Number(i.amount), 0);
+    const balance = totalInc - totalExp;
 
-    expenses.forEach(e => {
-        total += Number(e.amount);
-        cats[e.category] = (cats[e.category] || 0) + Number(e.amount);
-        
-        const li = document.createElement('li');
-        li.className = 'stats-card';
-        li.style.margin = '10px 0';
-        li.innerHTML = `<div style="display:flex; justify-content:space-between">
-            <span><b>${e.description}</b><br><small>${e.date}</small></span>
-            <span>${rupee.format(e.amount)} <button onclick="deleteExp('${e.id}')" style="width:auto; background:none; color:red; border:none; cursor:pointer">✕</button></span>
-        </div>`;
-        list.appendChild(li);
-    });
+    const balEl = document.getElementById('net-balance');
+    if(balEl) {
+        balEl.innerText = rupee.format(balance);
+        balEl.style.color = balance < 0 ? '#f43f5e' : 'white';
+    }
 
-    document.getElementById('total-amount').innerText = rupee.format(total);
+    // 2. Render Recurring List (Check if element exists first!)
+    const recList = document.getElementById('recurring-list');
+    if(recList) {
+        recList.innerHTML = '';
+        rec.forEach(r => {
+            recList.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:10px; opacity:${r.is_active?1:0.5}">
+                <small>${r.bill_name} (${rupee.format(r.amount)})</small>
+                <button onclick="toggleBill('${r.id}', ${r.is_active})" style="width:auto; padding:2px 8px; font-size:10px;">${r.is_active?'Cancel':'On'}</button>
+            </div>`;
+        });
+    }
 
-    budgets.forEach(b => {
-        const spent = cats[b.category] || 0;
-        const per = Math.min((spent / b.amount) * 100, 100);
-        budDiv.innerHTML += `<div style="margin-bottom:10px">
-            <small>${b.category}: ${rupee.format(spent)} / ${rupee.format(b.amount)}</small>
-            <div style="width:100%; background:#eee; height:8px; border-radius:4px"><div style="width:${per}%; background:${per>90?'red':'#2ecc71'}; height:100%; border-radius:4px"></div></div>
-        </div>`;
-    });
+    // 3. Render Goals
+    const goalCont = document.getElementById('goals-container');
+    if(goalCont) {
+        goalCont.innerHTML = '';
+        gol.forEach(g => {
+            const per = Math.min((g.current_saved/g.target_amount)*100, 100);
+            goalCont.innerHTML += `<small>${g.goal_name}</small>
+            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom:10px;">
+                <div style="width:${per}%; background:#fbbf24; height:100%; border-radius:4px;"></div>
+            </div>`;
+        });
+    }
 
+    // 4. Update Chart
+    const cats = {}; exp.forEach(e => cats[e.category] = (cats[e.category] || 0) + Number(e.amount));
     updateChart(cats);
 }
 
-document.getElementById('expense-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const amount = parseFloat(document.getElementById('amount').value);
-    const category = document.getElementById('category').value;
-
-    await supabaseClient.from('expenses').insert([{
-        user_id: user.id,
-        description: document.getElementById('desc').value,
-        amount: amount,
-        category: category,
-        date: new Date().toISOString().split('T')[0]
-    }]);
-
-    e.target.reset();
-    fetchExpenses();
+// Global functions (needed by HTML onclicks)
+window.toggleBill = async (id, status) => {
+    await supabaseClient.from('recurring_bills').update({ is_active: !status }).eq('id', id);
+    fetchData();
 };
 
-async function saveBudget() {
+async function addRecurringBill() {
     const { data: { user } } = await supabaseClient.auth.getUser();
-    await supabaseClient.from('budgets').upsert({
-        user_id: user.id,
-        category: document.getElementById('budget-category').value,
-        amount: parseFloat(document.getElementById('budget-val').value)
-    }, { onConflict: 'user_id,category' });
-    fetchExpenses();
+    const name = document.getElementById('rec-name').value;
+    const amt = document.getElementById('rec-amount').value;
+    if(!name || !amt) return;
+    await supabaseClient.from('recurring_bills').insert([{ user_id: user.id, bill_name: name, amount: parseFloat(amt), is_active: true }]);
+    fetchData();
 }
 
-async function deleteExp(id) {
-    if(confirm("Delete?")) {
-        await supabaseClient.from('expenses').delete().eq('id', id);
-        fetchExpenses();
-    }
+async function addGoal() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const name = document.getElementById('goal-name').value;
+    const target = document.getElementById('goal-target').value;
+    if(!name || !target) return;
+    await supabaseClient.from('savings_goals').insert([{ user_id: user.id, goal_name: name, target_amount: parseFloat(target) }]);
+    fetchData();
 }
 
 function updateChart(data) {
-    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const ctxEl = document.getElementById('expenseChart');
+    if(!ctxEl) return;
+    const ctx = ctxEl.getContext('2d');
     if (myChart) myChart.destroy();
-    
-    // Vibrant Neon Palette
-    const colors = ['#6366f1', '#f43f5e', '#10b981', '#fbbf24', '#a855f7'];
-    
     myChart = new Chart(ctx, {
         type: 'doughnut',
-        data: {
-            labels: Object.keys(data),
-            datasets: [{
-                data: Object.values(data),
-                backgroundColor: colors,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-                borderWidth: 2,
-                hoverOffset: 15
-            }]
-        },
-        options: {
-            plugins: {
-                legend: {
-                    labels: { color: '#f8fafc', font: { family: 'Inter', weight: '600' } }
-                }
-            },
-            cutout: '70%'
-        }
+        data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#6366f1', '#10b981', '#fbbf24', '#f43f5e'], borderWidth: 0 }] },
+        options: { plugins: { legend: { labels: { color: 'white' } } }, cutout: '75%' }
     });
 }
