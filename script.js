@@ -43,18 +43,24 @@ function showAuth() {
     document.getElementById('app-container').style.display = 'none';
 }
 
-// Replace your login listener with this one
 document.getElementById('login-btn').addEventListener('click', async (e) => {
-    e.preventDefault(); // Stop the page from refreshing
-    console.log("Login button clicked!"); // If you don't see this in console, the button isn't linked!
-
-    const email = document.getElementById('email').value;
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim(); // Added .trim() to remove accidental spaces
     const password = document.getElementById('password').value;
 
     const { data, error } = await supabaseClient.auth.signInWithPassword({
         email: email,
         password: password,
     });
+
+    if (error) {
+        // This will now tell you "Invalid login credentials" or "Email not confirmed"
+        console.error("Supabase Error Details:", error.message);
+        alert("Login Failed: " + error.message);
+    } else {
+        console.log("Success! Session started.");
+    }
+});
 
     if (error) {
         alert("Login Error: " + error.message);
