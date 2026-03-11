@@ -8,35 +8,26 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
+
     <div id="auth-container" class="container">
         <div class="stats-card auth-card">
             <h1>FinSwift AI</h1>
-            <p id="auth-msg"></p>
+            <p id="auth-msg" style="color: #f43f5e;"></p>
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Password">
             <button onclick="handleAuth('login')">Sign In</button>
             <button onclick="handleAuth('signup')" class="secondary">Create Account</button>
-            <div class="divider">OR</div>
-            <button id="google-btn" class="google-style">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Google Login
-            </button>
         </div>
     </div>
 
     <div id="app-container" class="container" style="display:none;">
         <header class="stats-card header-flex">
             <div id="user-profile">
-                <img id="user-avatar" src="" alt="Profile">
                 <span id="user-name">Welcome!</span>
             </div>
-            <div class="header-actions">
-                <button onclick="downloadPDF()" class="small-btn">📄 Export PDF</button>
-                <button id="logout-btn" class="small-btn logout">Logout</button>
-            </div>
+            <button id="logout-btn" class="small-btn">Logout</button>
         </header>
 
         <div class="grid">
@@ -48,54 +39,41 @@
 
                 <div class="stats-card">
                     <h3>🔄 Recurring Bills</h3>
-                    <div id="recurring-list"></div>
+                    <div id="recurring-list"></div> 
                     <div class="vibrant-form">
                         <input type="text" id="rec-name" placeholder="Netflix, Rent, etc.">
                         <input type="number" id="rec-amount" placeholder="Amount (₹)">
-                        <button onclick="addRecurringBill()" style="background:#a855f7;">Add Bill</button>
+                        <button id="add-rec-btn" style="background:#a855f7;">Add Bill</button>
                     </div>
                 </div>
 
                 <form id="income-form" class="stats-card">
                     <h3>💰 Add Income</h3>
-                    <input type="text" id="inc-source" placeholder="Source" required>
-                    <input type="number" id="inc-amount" placeholder="Amount (₹)" required>
+                    <input type="text" id="inc-source" placeholder="Source">
+                    <input type="number" id="inc-amount" placeholder="Amount">
                     <button type="submit" style="background:#10b981;">Save Income</button>
-                </form>
-
-                <form id="expense-form" class="stats-card">
-                    <h3>💸 Add Expense</h3>
-                    <input type="text" id="exp-desc" placeholder="Description" required>
-                    <input type="number" id="exp-amount" placeholder="Amount (₹)" required>
-                    <select id="exp-cat">
-                        <option value="Food">Food</option>
-                        <option value="Rent">Rent</option>
-                        <option value="Bills">Bills</option>
-                        <option value="Fun">Fun</option>
-                    </select>
-                    <button type="submit">Add Expense</button>
                 </form>
             </section>
 
             <section class="stack">
                 <div class="stats-card">
-                    <input type="month" id="month-picker" onchange="fetchData()">
+                    <input type="month" id="month-picker">
                     <canvas id="expenseChart"></canvas>
                 </div>
-                <div id="budget-status" class="stats-card"><h3>Budgets</h3></div>
-                <div id="goals-list" class="stats-card">
+
+                <div class="stats-card">
                     <h3>🎯 Savings Goals</h3>
                     <div id="goals-container"></div>
                     <div class="vibrant-form">
-                        <input type="text" id="goal-name" placeholder="Target Name">
+                        <input type="text" id="goal-name" placeholder="Goal Name">
                         <input type="number" id="goal-target" placeholder="Target Amount">
-                        <button onclick="addGoal()" style="background:#fbbf24; color:#1e1b4b;">New Goal</button>
+                        <button id="add-goal-btn" style="background:#fbbf24; color:#1e1b4b;">New Goal</button>
                     </div>
                 </div>
             </section>
         </div>
     </div>
-    <div id="loader" style="display:none;">Processing...</div>
+
     <script src="script.js"></script>
 </body>
 </html>
