@@ -14,20 +14,26 @@
     <div id="auth-container" class="container">
         <h1>FinSwift AI</h1>
         <p>Login to sync your expenses</p>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Password">
-        <button id="login-btn" class="primary">Login</button>
-        <button id="google-login-btn" class="secondary">
-            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="18"> Continue with Google
-        </button>
-        <button id="signup-btn" class="link-btn">New here? Sign Up</button>
+        <div class="auth-box">
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button id="login-btn" class="primary">Login</button>
+            <div class="divider"><span>OR</span></div>
+            <button id="google-login-btn" class="secondary">
+                <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="18"> Continue with Google
+            </button>
+            <button id="signup-btn" class="link-btn">New here? Sign Up</button>
+        </div>
     </div>
 
     <div id="app-container" class="container" style="display: none;">
         <header>
             <div class="header-top">
                 <h2>My Dashboard</h2>
-                <button id="theme-toggle">🌙</button>
+                <div class="header-btns">
+                    <button id="theme-toggle">🌙</button>
+                    <button id="logout-btn" class="danger-small">Logout</button>
+                </div>
             </div>
             <div class="budget-card">
                 <div class="total-box">
@@ -37,7 +43,7 @@
                 <div class="progress-box">
                     <label>Monthly Goal: ₹<input type="number" id="budget-input" value="50000"></label>
                     <div class="progress-bar-bg"><div id="progress-bar"></div></div>
-                    <small id="budget-status">Loading...</small>
+                    <small id="budget-status">Checking budget...</small>
                 </div>
             </div>
         </header>
@@ -62,7 +68,7 @@
                         <button type="button" id="scan-btn" class="ai-btn">🔍 AI Scan</button>
                     </div>
                     <div id="loader" style="display:none;" class="spinner"></div>
-                    <button type="submit" class="primary">Add Expense</button>
+                    <button type="submit" class="primary" id="submit-btn">Add Expense</button>
                 </form>
                 <div class="chart-box">
                     <canvas id="expenseChart"></canvas>
@@ -71,11 +77,10 @@
 
             <main class="history">
                 <div class="list-header">
-                    <input type="text" id="search-input" placeholder="Search...">
-                    <button id="export-btn">📊 CSV</button>
+                    <input type="text" id="search-input" placeholder="Search expenses...">
+                    <button id="export-btn">📊 Export CSV</button>
                 </div>
                 <ul id="expense-list"></ul>
-                <button id="logout-btn" class="danger">Logout</button>
             </main>
         </div>
     </div>
